@@ -13,3 +13,4 @@ FlexAID/WRK
 *.pkg
 *.tar.gz
 *.tar
+__pycache__/
