@@ -72,7 +72,7 @@ class Prefs(object):
         else:
             self.OSid = 'UNKNOWN'
         self.Install_Dir = os.environ.get('NRGSUITE_INSTALLATION',self.get_default_path_for_OSid())
-        if self.Install_Dir is '' or not os.path.isdir(self.Install_Dir):
+        if self.Install_Dir == '' or not os.path.isdir(self.Install_Dir):
             self.Install_Dir = self.get_default_path_for_OSid()
         # Load Saved Preferences
         self.Load_User_Prefs()
@@ -168,7 +168,7 @@ class Prefs(object):
         self.AlwaysShowAdvancedView = 0
         self.PreferenceFilePath = os.path.join(os.path.expanduser('~'),'Documents','NRGsuite','.NRGprefs')
         self.Install_Dir = os.environ.get('NRGSUITE_INSTALLATION',self.get_default_path_for_OSid())
-        if self.Install_Dir is '' or not os.path.isdir(self.Install_Dir):
+        if self.Install_Dir == '' or not os.path.isdir(self.Install_Dir):
             self.Install_Dir = self.get_default_path_for_OSid()
         self.Write_User_Prefs()
 

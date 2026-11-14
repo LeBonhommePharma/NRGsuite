@@ -80,7 +80,7 @@ def get_default_path_for_OSid():
 # sets Install_Dir to the default (and preferred) installation directory
 Install_Dir = os.environ.get('NRGSUITE_INSTALLATION', get_default_path_for_OSid())
  
-if Install_Dir is '' or not os.path.isdir(Install_Dir):
+if Install_Dir == '' or not os.path.isdir(Install_Dir):
     Install_Dir = get_default_path_for_OSid()
 
 if os.path.isdir(Install_Dir) and sys.version_info > (2, 5):
@@ -98,9 +98,16 @@ if os.path.isdir(Install_Dir) and sys.version_info > (2, 5):
         # prime PyMOL's legacy plugin system
         try:
             from pymol.plugins import get_tk_root
-            get_tk_root()
+            tk_root = get_tk_root()
         except ImportError:
-            pass
+            tk_root = None
+
+        # Qt builds (PyMOL 2.5+ / 3) and `pymol -c` leave the legacy PMG
+        # root as None. FlexAID and GetCleft construct Tk variables while
+        # their modules are imported, which requires Tk's default root.
+        if tk_root is None:
+            tk_root = Tk()
+            tk_root.withdraw()
     
         sys.path.append(Install_Dir)
         import Prefs
