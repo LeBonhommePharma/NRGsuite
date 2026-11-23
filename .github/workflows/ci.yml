@@ -1,0 +1,93 @@
+# Syntax, fatal-lint, and import checks for the NRGsuite PyMOL plugin.
+#
+# Scope: Python 3.12 only. The tree still has Python 2 import branches
+# (Tkinter, Queue, cPickle), and every module compiles as Python 3.
+# GitHub-hosted runners do not provide Python 2, and conda-forge
+# pymol-open-source is a Python 3 build, so there is no Python 2 job.
+# That is an explicit scope choice. Jobs are not allowed to fail, and
+# PyMOL is not stubbed.
+#
+# PyPI's pymol-open-source project is a source alpha and is not used.
+# The import job installs conda-forge pymol-open-source 3.1.0 (Python 3.12).
+# That build's legacy Tk root is None, including under `pymol -cq`. The
+# plugin creates a withdrawn Tk root before importing FlexAID, and this
+# job runs under Xvfb because that root is a real Tk interpreter.
+
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: syntax and fatal lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+
+      - name: Compile all Python sources
+        run: python -m compileall -f .
+
+      - name: Lint fatal error classes
+        run: |
+          python -m pip install --disable-pip-version-check "ruff==0.14.6"
+          python -m ruff check --select E9,F63,F7,F82 .
+
+  import-smoke:
+    name: import smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      LIBGL_ALWAYS_SOFTWARE: "1"
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install PyMOL from conda-forge
+        uses: mamba-org/setup-micromamba@f457c30a868e4760d3a6fcea5f25dc655b8edf39 # v3.2.1
+        with:
+          environment-name: nrg-ci
+          micromamba-version: "2.10.0-0"
+          init-shell: bash
+          cache-environment: true
+          create-args: >-
+            python=3.12
+            pymol-open-source=3.1.0
+
+      - name: Install Xvfb
+        run: sudo apt-get update && sudo apt-get install -y xvfb
+
+      - name: Import plugin modules under PyMOL
+        shell: bash -el {0}
+        run: xvfb-run -a python ci/import_smoke.py
+
+      - name: Run checked-in unit tests
+        shell: bash -el {0}
+        run: |
+          set -euo pipefail
+          tests=()
+          while IFS= read -r -d '' file; do
+            tests+=("$file")
+          done < <(find . \( -path './.git' -o -path './.github' -o -path './ci' \) -prune -o -type f \( -name 'test_*.py' -o -name '*_test.py' \) -print0)
+          if ((${#tests[@]})); then
+            python -m pip install --disable-pip-version-check "pytest==8.4.2"
+            python -m pytest -q
+          else
+            echo "No unit tests are checked in. Import smoke is the runtime check."
+          fi
